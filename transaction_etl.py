@@ -20,6 +20,7 @@ Corner cases handled:
   - Empty dataframe after cleaning (e.g. every row was bad) -> exits with a clear
     message instead of producing a misleading empty report.
 """
+import argparse
 import os
 import sys
 
@@ -183,9 +184,19 @@ def enrich(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Titan Remittance - Data Ingestion & Enrichment Pipeline.")
+    parser.add_argument("--input", default=RAW_PATH, help=f"Path to the raw event log CSV (default: {RAW_PATH}).")
+    parser.add_argument("--output", default=OUT_PATH, help=f"Path to write the enriched dataset CSV (default: {OUT_PATH}).")
+    return parser.parse_args()
+
+
 def main():
-    df = load_raw(RAW_PATH)
-    print(f"Loaded {len(df)} raw rows from '{RAW_PATH}'.")
+    args = parse_args()
+    in_path, out_path = args.input, args.output
+
+    df = load_raw(in_path)
+    print(f"Loaded {len(df)} raw rows from '{in_path}'.")
 
     df = parse_timestamps(df)
     df = normalize_categoricals(df)
@@ -203,17 +214,17 @@ def main():
     if df.empty:
         fail("No rows remained after cleaning. Check the input data quality.")
 
-    out_dir = os.path.dirname(OUT_PATH)
+    out_dir = os.path.dirname(out_path)
     try:
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
-        df.to_csv(OUT_PATH, index=False)
+        df.to_csv(out_path, index=False)
     except PermissionError:
-        fail(f"Permission denied writing to '{OUT_PATH}'.")
+        fail(f"Permission denied writing to '{out_path}'.")
     except OSError as exc:
-        fail(f"Could not write output file '{OUT_PATH}': {exc}")
+        fail(f"Could not write output file '{out_path}': {exc}")
 
-    print(f"Wrote {len(df)} enriched rows -> '{OUT_PATH}'.")
+    print(f"Wrote {len(df)} enriched rows -> '{out_path}'.")
     print(f"  Completed: {int(df['is_completed'].sum())} | Failed: {int(df['is_failed'].sum())} | "
           f"Other/in-progress: {int((~df['is_completed'] & ~df['is_failed']).sum())}")
 

@@ -36,6 +36,21 @@ python3 analytics.py
 streamlit run titan_dashboard.py
 ```
 
+### Running against your own data
+
+`transaction_etl.py` and `analytics.py` accept `--input`/`--output` flags
+instead of the default `data/` paths, so you can point the pipeline at a
+different event log without editing source:
+
+```bash
+python3 transaction_etl.py --input path/to/your_raw_events.csv --output path/to/processed.csv
+python3 analytics.py --input path/to/processed.csv
+```
+
+Run `python3 transaction_etl.py --help` or `python3 analytics.py --help` for
+details. The dashboard (`titan_dashboard.py`) and `generate_screenshots.py`
+still read from the default `data/processed_transactions.csv` path.
+
 Each script can be run independently and fails with a clear, actionable error
 message (not a stack trace) if a prior step hasn't been run or its output is
 missing/corrupt.

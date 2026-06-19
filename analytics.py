@@ -19,6 +19,7 @@ Corner cases handled:
   - All amount-based metrics use only rows where amount_is_valid is True, so
     bad/missing amounts injected upstream can't silently skew the averages.
 """
+import argparse
 import os
 import sys
 
@@ -239,9 +240,18 @@ def print_report(df: pd.DataFrame):
     print(problems.to_string(index=False) if not problems.empty else "Insufficient data to rank problem areas.")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Titan Remittance - Corridor & Payout Method Analytics.")
+    parser.add_argument("--input", default=PROCESSED_PATH,
+                         help=f"Path to the enriched dataset CSV produced by transaction_etl.py "
+                              f"(default: {PROCESSED_PATH}).")
+    return parser.parse_args()
+
+
 def main():
-    df = load_processed()
-    print(f"Loaded {len(df)} processed rows from '{PROCESSED_PATH}'.")
+    args = parse_args()
+    df = load_processed(args.input)
+    print(f"Loaded {len(df)} processed rows from '{args.input}'.")
     print_report(df)
 
 
