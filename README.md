@@ -82,11 +82,30 @@ hot path) — well inside the 50k-rows/<10s target.
   dataset — not to today's wall-clock date — so it works correctly on
   historical or filtered data.
 - "Revenue risk" ranking for top problem areas is a simple heuristic: size of
-  ATV decline (%) x recent transaction volume. It's meant to prioritize
-  investigation, not as a precise revenue-recovery estimate.
+  ATV decline (%) x total initiated volume x (1 + failure rate). It's meant
+  to prioritize investigation, not as a precise revenue-recovery estimate.
 - Test data is synthetic and seeded (`random.seed(42)`) for reproducibility;
   it does not need to be perfectly realistic, only complex enough to exercise
   the pipeline (per the challenge spec).
+
+## Stretch goals covered
+
+- **Cost-benefit analysis** — `top_problem_areas()` in `analytics.py`
+  estimates `est_recoverable_monthly_usd` per corridor/payout-method
+  combination: if that lane's ATV recovered to its prior-30-day level, how
+  much extra transaction volume would its last-30-day transaction count
+  have produced. Surfaced in both the text report and the dashboard table.
+- **Interactive filtering** — the Streamlit dashboard filters by corridor,
+  payout method, status, date range, and amount range, all recomputing the
+  KPIs and charts live.
+- **Anomaly/degradation flagging (partial)** — the 30-vs-30 ATV trend and
+  the risk-weighted problem-area ranking both compare recent performance to
+  historical, surfacing corridors/methods whose ATV or failure rate has
+  degraded. This isn't a full statistical anomaly detector (e.g. no z-scores
+  or rolling-window baselines), just a direct period-over-period comparison.
+- **Not attempted: user behavior segmentation** — the test data has no
+  sender/user identifier, so first-time-vs-repeat-sender analysis isn't
+  possible without changing the data model; out of scope given the time box.
 
 ## Findings: What is causing Titan's revenue drop, and what should they do about it?
 
