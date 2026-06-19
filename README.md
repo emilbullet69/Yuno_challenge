@@ -12,8 +12,11 @@ cross-border payout corridors.
 | `transaction_etl.py` | Ingestion + cleaning + enrichment pipeline. Reads `data/raw_events.csv`, dedupes/cleans, enriches, writes `data/processed_transactions.csv`. |
 | `analytics.py` | Computes the business KPIs (drop-off rate, ATV by payout method, failure rates, 30-vs-30 ATV trend, top problem areas). Runnable standalone for a text report. |
 | `titan_dashboard.py` | Interactive Streamlit dashboard — filters, charts, ranked tables, plain-language summary for a non-technical stakeholder. |
+| `generate_screenshots.py` | Exports the dashboard's charts/tables to static PNGs in `screenshots/`, so a reviewer can see sample output without running Streamlit. |
+| `FINDINGS.md` | Standalone written summary answering "what is causing the revenue drop and what should Titan do about it." |
 | `data/raw_events.csv` | Sample generated test data (committed so reviewers can skip generation). |
 | `data/processed_transactions.csv` | Sample pipeline output. |
+| `screenshots/` | Sample chart/table output (PNG), committed for reviewers who don't want to run the dashboard. |
 
 ## How to run
 
@@ -87,26 +90,14 @@ hot path) — well inside the 50k-rows/<10s target.
 
 ## Findings: What is causing Titan's revenue drop, and what should they do about it?
 
-The drop in total transaction value is driven almost entirely by **falling
-ATV, not falling transaction counts** — and the ATV decline (~27-28%) is
-remarkably consistent across *every* corridor in the most recent 30 days
-versus the prior 30 days, meaning this is a platform-wide trust/friction
-problem introduced by the Q4 2024 Yuno migration, not a single bad corridor.
-The clearest signal is that three corridors — **USA→Philippines,
-UK→Nigeria, and Canada→India** — show drop-off rates of 23-29% (versus 8-11%
-for the healthiest corridors) and failure rates 2-3x higher on **cash pickup
-and mobile wallet** than on bank transfer in those same lanes. Mobile wallet
-also has the lowest ATV of any payout method ($181.75 vs $265.45 for bank
-transfer), consistent with senders sending smaller, lower-risk amounts
-through the routes they trust least. The combined pattern — high friction in
-specific corridor/payout-method combinations correlating with both higher
-failure rates and smaller transfer sizes — strongly suggests senders are
-reacting rationally to unreliable routing by sending test amounts or
-splitting transfers, rather than abandoning the platform outright (counts
-stayed flat). **Recommendation:** prioritize re-tuning Yuno's orchestration
-logic for cash pickup and mobile wallet payouts in the USA→Philippines,
-UK→Nigeria, and Canada→India corridors first (per `analytics.py`'s top-3
-problem-area ranking, these combinations carry the highest estimated revenue
-risk), since fixing the failure rate there should restore sender confidence
-and let transfer sizes recover without needing to touch the otherwise-healthy
-corridors.
+See [`FINDINGS.md`](FINDINGS.md) for the full write-up. Short version: ATV
+fell ~27-28% across *every* corridor (a platform-wide trust/friction issue
+from the Q4 2024 Yuno migration, not one bad lane), and the top revenue-risk
+combinations — ranked by ATV decline x transaction volume x failure rate —
+are **USA→Philippines cash pickup, UK→Nigeria cash pickup, and USA→Philippines
+mobile wallet**, representing an estimated $140K+/month in recoverable
+volume if fixed.
+
+Sample chart/table output (generated via `generate_screenshots.py`) is in
+[`screenshots/`](screenshots/); the same views are available live and
+filterable in the Streamlit dashboard.
