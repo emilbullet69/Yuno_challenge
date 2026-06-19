@@ -174,6 +174,12 @@ def top_problem_areas(df: pd.DataFrame, top_n: int = 3) -> pd.DataFrame:
     atv_prior = prior_30.groupby(key)["amount_usd"].mean()
     vol_last = last_30.groupby(key)["amount_usd"].count()
 
+    # Total initiated volume in the last 30 days (regardless of completion), used for sizing
+    # the funnel risk below -- using only *completed* volume here would understate the size
+    # of high-failure lanes, since fewer of their transactions ever reach "completed".
+    df_last_30 = df[df["initiated_at"] >= last_30_start]
+    initiated_last = df_last_30.groupby(key)["transaction_id"].count()
+
     combined = pd.DataFrame({"atv_prior": atv_prior, "atv_last": atv_last, "volume": vol_last}).dropna(
         subset=["atv_prior", "atv_last"]
     )
@@ -184,16 +190,28 @@ def top_problem_areas(df: pd.DataFrame, top_n: int = 3) -> pd.DataFrame:
 
     fail_rates = failure_rate_by_corridor_method(df).set_index(["corridor", "payout_method"])["failure_rate_pct"]
     combined = combined.join(fail_rates, how="left")
+    combined = combined.join(initiated_last.rename("initiated_volume"), how="left")
 
-    # Risk score: magnitude of decline (only negative changes count) x volume, so a
-    # big drop in a high-volume lane ranks above a big drop in a tiny lane.
+    # Risk score: magnitude of ATV decline x total initiated volume x (1 + failure rate),
+    # so a lane that is both shrinking AND leaking transactions to failure ranks above a
+    # lane that's only shrinking. Using initiated (not completed) volume avoids understating
+    # high-failure lanes, whose completed counts are artificially small.
     decline_magnitude = combined["atv_change_pct"].clip(upper=0).abs()
-    combined["risk_score"] = (decline_magnitude * combined["volume"]).round(0)
+    combined["risk_score"] = (
+        decline_magnitude * combined["initiated_volume"] * (1 + combined["failure_rate_pct"] / 100)
+    ).round(0)
+
+    # Recoverable revenue estimate: if this combo's ATV returned to its prior-30-day level,
+    # how much extra volume would last-30-day transaction count have produced? A simple,
+    # directional estimate (not a precise forecast) for prioritizing fixes.
+    atv_gap = (combined["atv_prior"] - combined["atv_last"]).clip(lower=0)
+    combined["est_recoverable_monthly_usd"] = (atv_gap * combined["volume"]).round(0)
 
     out = combined.reset_index()
     out["atv_change_pct"] = out["atv_change_pct"].round(1)
     return out.sort_values("risk_score", ascending=False).head(top_n)[
-        ["corridor", "payout_method", "volume", "atv_change_pct", "failure_rate_pct", "risk_score"]
+        ["corridor", "payout_method", "volume", "atv_change_pct", "failure_rate_pct",
+         "risk_score", "est_recoverable_monthly_usd"]
     ]
 
 
