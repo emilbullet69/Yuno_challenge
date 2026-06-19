@@ -116,7 +116,7 @@ def dedupe_transactions(df: pd.DataFrame) -> pd.DataFrame:
         n_missing_id = df["transaction_id"].isna().sum()
         print(f"NOTE: {n_missing_id} row(s) had a missing transaction_id and were dropped "
               "(cannot reliably dedupe or join without an identifier).")
-        df = df[df["transaction_id"].notna()]
+        df = df[df["transaction_id"].notna()].copy()
 
     n_before = len(df)
     df["_status_rank"] = df["status"].map(STATUS_RANK).fillna(-1)
